@@ -156,13 +156,23 @@
       <field name="model">project.task</field>
       <field name="inherit_id" ref="project.view_task_form2"/>
       <field name="arch" type="xml">
-        <xpath expr="//field[@name='categ_ids']" position="after">
+        <xpath expr="//field[@name='tag_ids']" position="after">
           <field name="sprint_id"/>
         </xpath>
-        <xpath expr='//sheet[@string="Task"]/h1/field[@name="name"]' position="before">
+        <xpath expr='//sheet/div/h1/field[@name="name"]' position="before">
 			<field name="id"/>
 		</xpath>
-        <xpath expr="//page[@string='Extra Info']" position="after">
+    <notebook position='inside'>
+        <page string='Tecnical Features'>
+            <group col="4">
+              <field name="url_branch" widget="url"/>
+              <field name="merge_proposal"/>
+              <field name="blueprint"/>
+              <field name="res_id"/>
+            </group>
+        </page>
+    </notebook>
+        <!--xpath expr="//page[@string='Extra Info']" position="after">
           <page string="Tecnical Features">
 			<group col="4">
 				<field name="url_branch" widget="url"/>
@@ -171,7 +181,7 @@
 				<field name="res_id"/>
 			</group>
 		  </page>
-        </xpath>
+        </xpath-->
       </field>
     </record>
     
