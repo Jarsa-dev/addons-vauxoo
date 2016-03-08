@@ -33,10 +33,8 @@ class AnalyticLine(osv.Model):
         res = {}
         for time_brw in self.browse(cr, uid, ids, context=context):
             hours = time_brw.unit_amount
-            if time_brw.to_invoice:
-                hours = time_brw.unit_amount - \
-                    (time_brw.unit_amount *
-                     (time_brw.to_invoice.factor / 100))
+            if time_brw.invoiceables_hours:
+                hours = time_brw.invoiceables_hours
             res.update({time_brw.id: hours})
         return res
 
@@ -50,8 +48,8 @@ class AnalyticLine(osv.Model):
             us_id = False
             task_ids = task_obj.\
                 search(cr, uid,
-                       [('work_ids.hr_analytic_timesheet_id', '=',
-                         time_brw.id)])
+                       [('id', '=',
+                         time_brw.task_id)])
             if task_ids:
                 task_read = task_obj.read(cr, uid, task_ids[0],
                                           ['userstory_id'],
@@ -63,9 +61,10 @@ class AnalyticLine(osv.Model):
     def _get_analytic_from_task(self, cr, uid, ids, context=None):
         context = context or {}
         cr.execute('''
-                   SELECT array_agg(work.hr_analytic_timesheet_id) as a_id
+                   SELECT array_agg(line.id) as a_id
                    FROM project_task AS task
-                   INNER JOIN project_task_work AS work ON work.task_id=task.id
+                   INNER JOIN account_analytic_line AS line
+                   ON line.task_id=task.id
                    WHERE task.id {op} {tids}
                    '''.format(op=(len(ids) == 1) and '=' or 'in',
                               tids=(len(ids) == 1) and ids[0] or tuple(ids)))
@@ -138,17 +137,17 @@ class CustomTimesheet(osv.Model):
                                         help='Code of User Story related '
                                         'to this analytic'),
         'name': fields.char(
-            'Description', 264, help='Description of the work'),
+            'Description', 264, help='Description of the line'),
 
         'unit_amount': fields.float('Duration', readonly=True),
-        'timesheet_id': fields.many2one('hr.analytic.timesheet',
-                                        'TimeSheet', readonly=True,
-                                        select=True),
-        'to_invoice': fields.related('timesheet_id',
-                                     'to_invoice',
-                                     relation='hr_timesheet_invoice.factor',
-                                     type='many2one',
-                                     string='Invoiceable'),
+        # 'timesheet_id': fields.many2one('hr.analytic.timesheet',
+        #                                 'TimeSheet', readonly=True,
+        #                                 select=True),
+        # 'to_invoice': fields.related('timesheet_id',
+        #                              'to_invoice',
+        #                              relation='hr_timesheet_invoice.factor',
+        #                              type='many2one',
+        #                              string='Invoiceable'),
         'invoiceables_hours': fields.function(_get_invoiceables_hours,
                                               type='float',
                                               string='Invoiceable Hours',
@@ -160,20 +159,17 @@ class CustomTimesheet(osv.Model):
         cr.execute('''
             create or replace view custom_timesheet as (
                 SELECT
-                      work.id AS id,
-                      work.date AS date,
-                      work.user_id AS user_id,
+                      line.id AS id,
+                      line.date AS date,
+                      line.user_id AS user_id,
                       us.id AS userstory_id,
                       us.id AS userstory,
                       analytic.id AS analytic_id,
                       task.name AS task_title,
-                      work.name AS name,
-                      work.hours AS unit_amount,
-                      tsheet.id AS timesheet_id
-                FROM project_task_work AS work
-                LEFT JOIN hr_analytic_timesheet AS tsheet
-                   ON tsheet.id = work.hr_analytic_timesheet_id
-                INNER JOIN project_task AS task ON task.id = work.task_id
+                      line.name AS name,
+                      line.unit_amount AS unit_amount
+                FROM account_analytic_line AS line
+                LEFT JOIN project_task AS task ON task.id = line.task_id
                 INNER JOIN user_story AS us ON us.id = task.userstory_id
                 INNER JOIN project_project AS project
                    ON project.id = task.project_id

@@ -33,7 +33,8 @@
                 <label for="project_id" string="2.- Related Project" class="oe_horizontal_separator oe_clear"/>
             </h3>
             <div>
-                <field name="project_id" on_change="onchange_project_followers(project_id, owner_id, user_id, user_execute_id)" domain="[('child_ids','=',False)]" context="{'current_model': 'project.project'}" />
+                <!--field name="project_id" on_change="onchange_project_followers(project_id, owner_id, user_id, user_execute_id)" domain="[('child_ids','=',False)]" cont-ext="{'current_model': 'project.project'}" /-->
+                <field name="project_id" on_change="onchange_project_followers(project_id, owner_id, user_id, user_execute_id)" context="{'current_model': 'project.project'}" />
                 <div class="no_print" attrs="{'invisible':[('help','=',False)]}">
                     <p class="oe_grey">
                         The link to the project, all projects listed here
@@ -61,7 +62,7 @@
                             string="How Important is This for you?"/>
                         <field name="categ_ids" widget="many2many_tags"
                             string="Extra Clasification (For Internal Use)"
-                            context="{'current_model1': 'project.category'}"/>
+                            context="{'current_model1': 'project.tags'}"/>
                     </group>
                 </group>
               <h1><label for="description" string="3.- Description" colspan="4" class="oe_horizontal_separator oe_clear"/></h1>
@@ -403,7 +404,7 @@
     <menuitem parent="menu_user_story" id="menu_action_user_story" action="action_user_story" groups="user_story.group_user_story_manager,user_story.group_user_story_user"/>
     <menuitem parent="menu_user_story" id="menu_action_my_user_story" action="action_my_user_story" groups="user_story.group_user_story_manager,user_story.group_user_story_user"/>
     <menuitem parent="menu_user_story" id="menu_acceptability_criteria" action="action_acceptability_criteria" groups="user_story.group_user_story_manager,user_story.group_user_story_user"/>
-    <menuitem parent="base.menu_definitions" id="menu_conf_user_story" groups="user_story.group_user_story_manager,user_story.group_user_story_user" name="User Story"/>
+    <menuitem parent="project.menu_project_config" id="menu_conf_user_story" groups="user_story.group_user_story_manager,user_story.group_user_story_user" name="User Story"/>
     <menuitem parent="menu_conf_user_story" id="menu_config_user_story_priority" action="action_user_story_priority" groups="user_story.group_user_story_manager,user_story.group_user_story_user"/>
     <menuitem parent="menu_conf_user_story" id="menu_config_user_story_difficulty" action="action_user_story_difficulty" groups="user_story.group_user_story_manager"/>
   </data>

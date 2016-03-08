@@ -36,9 +36,9 @@ class CustomTimesheetAll(osv.Model):
 
     _columns = {
         'period': fields.char('Period', 128,
-                              help='Period for the date of summary work.'),
+                              help='Period for the date of summary line.'),
         'date': fields.date('Date', readonly=True,
-                            help='Date of summary work.'),
+                            help='Date of summary line.'),
         'analytic_id': fields.many2one('account.analytic.account', 'Project',
                                        readonly=True, select=True),
         'userstory': fields.integer('User Story', readonly=True,
@@ -49,15 +49,15 @@ class CustomTimesheetAll(osv.Model):
                                     task title.'),
         'user_id': fields.many2one('res.users', 'User',
                                    readonly=True, select=True, help='User of\
-                                    summary work.'),
+                                    summary line.'),
         'name': fields.char('Description', 264, help='Description of the\
-                            summary work.'),
+                            summary line.'),
         'unit_amount': fields.float('Duration', readonly=True, help='Time\
-                                    spent on work.'),
-        'invoiceable': fields.many2one('hr_timesheet_invoice.factor',
-                                       'Invoiceable', readonly=True,
-                                       help='Definition of invoicing status of\
-                                        the line.'),
+                                    spent on line.'),
+        # 'invoiceable': fields.many2one('hr_timesheet_invoice.factor',
+        #                                'Invoiceable', readonly=True,
+        #                                help='Definition of invoicing status of\
+        #                                 the line.'),
         'invoiceables_hours': fields.float('Invoiceable Hours', readonly=True,
                                            help='Total hours to charge.'),
     }
@@ -70,29 +70,21 @@ class CustomTimesheetAll(osv.Model):
         cr.execute('''
             create or replace view custom_timesheet_all as (
                 SELECT
-                    work.id AS id,
-                    to_char(work.date,'MM/YYYY') AS period,
-                    date(work.date) AS date,
+                    line.id AS id,
+                    to_char(line.date,'MM/YYYY') AS period,
+                    date(line.date) AS date,
                     analytic.id AS analytic_id,
                     us.id AS userstory,
                     task.id AS task_id,
-                    work.user_id AS user_id,
-                    work.name AS name,
-                    work.hours AS unit_amount,
-                    acc_anal_line.to_invoice AS invoiceable,
-                    work.hours - (work.hours * (hr_ts_factor.factor / 100))
-                     AS invoiceables_hours
-                FROM project_task_work AS work
-                LEFT JOIN hr_analytic_timesheet AS tsheet ON
-                 tsheet.id = work.hr_analytic_timesheet_id
-                LEFT JOIN account_analytic_line AS acc_anal_line ON
-                 acc_anal_line.id = tsheet.line_id
-                LEFT JOIN hr_timesheet_invoice_factor AS hr_ts_factor ON
-                 hr_ts_factor.id = acc_anal_line.to_invoice
+                    line.user_id AS user_id,
+                    line.name AS name,
+                    line.unit_amount AS unit_amount,
+                    line.invoiceables_hours AS invoiceables_hours
+                FROM account_analytic_line AS line
                 LEFT JOIN account_analytic_account AS analytic ON
-                 analytic.id = acc_anal_line.account_id
+                 analytic.id = line.account_id
                 LEFT JOIN project_task AS task ON
-                 task.id = work.task_id
+                 task.id = line.task_id
                 LEFT JOIN user_story AS us ON
                  us.id = task.userstory_id
         )''')

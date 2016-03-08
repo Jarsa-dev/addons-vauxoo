@@ -35,6 +35,7 @@
         "project",
         "sprint_kanban",
         "project_timesheet",
+        "project_issue_management",
         # "hr_timesheet_invoice",
         # "project_conf",
         # "report_webkit"
@@ -49,10 +50,10 @@
         "security/ir.model.access.csv",
         "view/userstory_view.xml",
         "view/project_view.xml",
-        "view/hr_timesheet_view.xml",
+        # "view/hr_timesheet_view.xml",
         "view/hr_timesheet_all_view.xml",
         "view/custom_project_task_view.xml",
-        "view/account_analytic_account.xml",
+        # "view/account_analytic_account.xml",
         "data/data.xml",
         "data/user_story_template.xml",
         "report/user_story_report.xml"

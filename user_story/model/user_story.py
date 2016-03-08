@@ -21,19 +21,19 @@
 
 import time
 
-from openerp import SUPERUSER_ID, api
-from openerp.osv import fields, osv
-from openerp.tools.translate import _
+from openerp import _, api, fields, models, SUPERUSER_ID
+# from openerp.osv import osv
+# from openerp.tools.translate import
 
 _US_STATE = [('draft', 'New'), ('open', 'In Progress'), (
     'pending', 'Pending'), ('done', 'Done'), ('cancelled', 'Cancelled')]
 
 
-class UserStory(osv.Model):
+class UserStory(models.Model):
     _name = 'user.story'
     _description = 'User Story'
     _order = 'id desc'
-    _inherit = ['mail.thread']
+    _inherit = 'mail.thread'
 
     def write(self, cr, uid, ids, vals, context=None):
         context = dict(context or {})
@@ -144,9 +144,9 @@ class UserStory(osv.Model):
     def _hours_get(self, cr, uid, ids, field_names, args, context=None):
         res = {}
         cr.execute('''
-            SELECT us.id, COALESCE(SUM(ptw.hours))
-            FROM project_task_work ptw
-            INNER JOIN project_task pt ON pt.id = ptw.task_id
+            SELECT us.id, COALESCE(SUM(aal.unit_amount))
+            FROM account_analytic_line aal
+            INNER JOIN project_task pt ON pt.id = aal.task_id
             INNER JOIN user_story us ON us.id = pt.userstory_id
             WHERE us.id IN %s
             GROUP BY us.id
@@ -160,15 +160,15 @@ class UserStory(osv.Model):
                             context=None):
         res = {}
         cr.execute('''
-            SELECT us.id, array_agg(ptw.hr_analytic_timesheet_id)
-            FROM project_task_work ptw
-            INNER JOIN project_task pt ON pt.id = ptw.task_id
+            SELECT us.id, array_agg(aal.id)
+            FROM account_analytic_line aal
+            INNER JOIN project_task pt ON pt.id = aal.task_id
             INNER JOIN user_story us ON us.id = pt.userstory_id
             WHERE us.id IN %s
             GROUP BY us.id
         ''', (tuple(ids),))
         hours = dict(cr.fetchall())
-        time_obj = self.pool.get('hr.analytic.timesheet')
+        time_obj = self.pool.get('account.analytic.line')
         for us_brw in self.browse(cr, uid, ids, context=context):
             hours_t = 0.0
             for time_id in hours.get(us_brw.id, ()):
@@ -177,32 +177,32 @@ class UserStory(osv.Model):
             res[us_brw.id] = hours_t
         return res
 
-    def _get_user_story_from_ptw(self, cr, uid, ids, context=None):
-        result = {}
-        task_ids = {}
-        for work in self.pool.get('project.task.work').browse(cr, uid, ids,
-                                                              context=context):
-            if work.task_id:
-                result[work.task_id.id] = True
-        task_ids = task_ids.keys()
-        for task in self.pool.get('project.task').browse(cr, uid, task_ids,
-                                                         context=context):
-            if task.userstory_id:
-                result[task.userstory_id.id] = True
-        return result.keys()
+    # def _get_user_story_from_ptw(self, cr, uid, ids, context=None):
+    #     result = {}
+    #     task_ids = {}
+    #     for line in self.pool.get('account.analytic.line').browse(cr, uid, ids,
+    #                                                               context=context):
+    #         if line.task_id:
+    #             result[line.task_id.id] = True
+    #     task_ids = task_ids.keys()
+    #     for task in self.pool.get('project.task').browse(cr, uid, task_ids,
+    #                                                      context=context):
+    #         if task.userstory_id:
+    #             result[task.userstory_id.id] = True
+    #     return result.keys()
 
-    def _get_user_story_from_ts(self, cr, uid, ids, context=None):
-        task_ids = {}
-        task_obj = self.pool.get('project.task')
-        work_obj = self.pool.get('project.task.work')
-        us_obj = self.pool.get('user.story')
-        work_ids = work_obj.search(cr, uid,
-                                   [('hr_analytic_timesheet_id', 'in', ids)])
-        task_ids = task_obj.search(cr, uid,
-                                   [('work_ids', 'in', work_ids)])
-        us_ids = us_obj.search(cr, uid,
-                               [('task_ids', 'in', task_ids)])
-        return us_ids
+    # def _get_user_story_from_ts(self, cr, uid, ids, context=None):
+    #     task_ids = {}
+    #     task_obj = self.pool.get('project.task')
+    #     line_obj = self.pool.get('account.analytic.line')
+    #     us_obj = self.pool.get('user.story')
+    #     line_ids = line_obj.search(cr, uid,
+    #                                [('userstory_id', 'in', ids)])
+    #     task_ids = task_obj.search(cr, uid,
+    #                                [('work_ids', 'in', work_ids)])
+    #     us_ids = us_obj.search(cr, uid,
+    #                            [('task_ids', 'in', task_ids)])
+    #     return us_ids
 
     def _get_user_story_from_pt(self, cr, uid, ids, context=None):
         result = {}
@@ -225,28 +225,49 @@ class UserStory(osv.Model):
             context=context)
         return res
 
-    _columns = {
-        'name': fields.char('Title', size=255, required=True, readonly=False,
-                            translate=True, track_visibility='onchange'),
-        'owner_id': fields.many2one('res.users', 'Owner',
-                                    help="User Story's Owner, generally the "
+    name = fields.Char(string="Title", size=255, required=True, readonly=False,
+                       translate=True, track_visibility='onchange')
+    owner_id = fields.Many2one('res.users', string="Owner",
+                               help="User Story's Owner, generally the "
                                     "person which asked to develop "
                                     "this feature",
-                                    track_visibility='always'),
-        'approval_user_id': fields.many2one('res.users',
-                                            'Approver',
-                                            help="User which approve "
-                                            "this USer Story"),
-        'code': fields.char('Code', size=64, readonly=False),
-        'planned_hours': fields.float('Planned Hours'),
-        'project_id': fields.many2one('project.project', 'Project',
-                                      required=True),
-        'description': fields.text('Description', translate=True,
-                                   track_visibility='onchange'),
-        'accep_crit_ids': fields.one2many('acceptability.criteria',
-                                          'accep_crit_id',
-                                          'Acceptability Criteria',
-                                          required=False),
+                                    track_visibility='always')
+    approval_user_id = fields.Many2one('res.users', string="Approver",
+                                       help="User which approve "
+                                            "this USer Story")
+    code = fields.Char(string="Code", size=64, readonly=False)
+    planned_hours = fields.Float(string="Planned Hours")
+    project_id = fields.Many2one('project.project', string="Project",
+                                 required=True)
+    description = fields.Text(string="Description", translate=True,
+                              track_visibility='onchange')
+    accep_crit_ids = fields.One2many('acceptability.criteria',
+                                     'accep_crit_id',
+                                     string="Acceptability Criteria",
+                                     required=False)
+
+    _columns = {
+        # 'name': fields.char('Title', size=255, required=True, readonly=False,
+        #                    translate=True, track_visibility='onchange'),
+        # 'owner_id': fields.many2one('res.users', 'Owner',
+        #                             help="User Story's Owner, generally the "
+        #                             "person which asked to develop "
+        #                             "this feature",
+        #                             track_visibility='always'),
+        # 'approval_user_id': fields.many2one('res.users',
+        #                                     'Approver',
+        #                                     help="User which approve "
+        #                                     "this USer Story"),
+        # 'code': fields.char('Code', size=64, readonly=False),
+        # 'planned_hours': fields.float('Planned Hours'),
+        # 'project_id': fields.many2one('project.project', 'Project',
+        #                               required=True),
+        # 'description': fields.text('Description', translate=True,
+        #                            track_visibility='onchange'),
+        # 'accep_crit_ids': fields.one2many('acceptability.criteria',
+        #                                   'accep_crit_id',
+        #                                   'Acceptability Criteria',
+        #                                   required=False),
         'info': fields.text('Other Info', translate=True),
         'priority_level': fields.many2one(
             'user.story.priority',
@@ -264,8 +285,8 @@ class UserStory(osv.Model):
         'user_execute_id': fields.many2one(
             'res.users', 'Execution Responsible',
             help="Person responsible for user story takes place, either by"
-                 " delegating work to other human resource or running it by"
-                 " itself. For delegate work should monitor the proper"
+                 " delegating line to other human resource or running it by"
+                 " itself. For delegate line should monitor the proper"
                  " implementation of associated activities.",
             track_visibility='always'),
         'sk_id': fields.many2one('sprint.kanban', 'Sprint Kanban'),
@@ -276,8 +297,8 @@ class UserStory(osv.Model):
             string="Tasks",
             help=("Draft procurement of the product and location of that"
                   " orderpoint")),
-        'categ_ids': fields.many2many('project.category',
-                                      'project_category_user_story_rel',
+        'categ_ids': fields.many2many('project.tags',
+                                      'project_tags_user_story_rel',
                                       'userstory_id', 'categ_id',
                                       string="Tags"),
         'implementation': fields.text('Implementation Conclusions',
@@ -292,23 +313,23 @@ class UserStory(osv.Model):
             _expended_hours_get,
             type='float',
             string='Invoiceable Hours',
-            help="Computed using the sum of the task work done.",
+            help="Computed using the sum of the task line done.",
             store = {
                 _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
                 'project.task': (_get_user_story_from_pt,
-                                 ['work_ids', 'userstory_id'], 10),
-                'hr.analytic.timesheet': (_get_user_story_from_ts,
-                                          ['unit_amount', 'to_invoice'], 10),
-                'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
+                                 ['timesheet_ids', 'userstory_id'], 10),
+                # 'hr.analytic.timesheet': (_get_user_story_from_ts,
+                #                           ['unit_amount', 'to_invoice'], 10),
+                # 'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
             }),
         'effective_hours': fields.function(
             _hours_get, string='Hours Spent',
-            help="Computed using the sum of the task work done.",
+            help="Computed using the sum of the task line done.",
             store = {
                 _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
                 'project.task': (_get_user_story_from_pt,
-                                 ['work_ids', 'userstory_id'], 10),
-                'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
+                                 ['timesheet_ids', 'userstory_id'], 10),
+                # 'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
             }),
     }
 
@@ -440,7 +461,7 @@ class UserStory(osv.Model):
                           context=context)
 
 
-class UserStoryPriority(osv.Model):
+class UserStoryPriority(models.Model):
     _name = 'user.story.priority'
     _description = "User Story Priority Level"
     _columns = {
@@ -448,7 +469,7 @@ class UserStoryPriority(osv.Model):
     }
 
 
-class UserStoryDifficulty(osv.Model):
+class UserStoryDifficulty(models.Model):
     _name = 'user.story.difficulty'
     _description = "User Story Difficulty Level"
     _order = "points asc"
@@ -470,7 +491,7 @@ class UserStoryDifficulty(osv.Model):
     }
 
 
-class AcceptabilityCriteria(osv.Model):
+class AcceptabilityCriteria(models.Model):
     _name = 'acceptability.criteria'
     _description = 'Acceptability Criteria'
 
@@ -666,7 +687,7 @@ class AcceptabilityCriteria(osv.Model):
         'categ_ids': fields.function(
             _get_user_story_field,
             type="many2one",
-            relation="project.category",
+            relation="project.tags",
             string='Tag',
             help='Tag',
             store={
@@ -703,7 +724,7 @@ class AcceptabilityCriteria(osv.Model):
     }
 
 
-class ProjectTask(osv.Model):
+class ProjectTask(models.Model):
     _inherit = 'project.task'
 
     def default_get(self, cr, uid, field, context=None):
@@ -755,7 +776,7 @@ class ProjectTask(osv.Model):
     }
 
 
-class InheritProject(osv.Model):
+class InheritProject(models.Model):
 
     '''Inheirt project model to a new Descripcion field'''
 
