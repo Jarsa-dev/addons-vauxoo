@@ -33,7 +33,7 @@ class UserStory(models.Model):
     _name = 'user.story'
     _description = 'User Story'
     _order = 'id desc'
-    _inherit = 'mail.thread'
+    # _inherit = 'mail.thread'
 
     def write(self, cr, uid, ids, vals, context=None):
         context = dict(context or {})
