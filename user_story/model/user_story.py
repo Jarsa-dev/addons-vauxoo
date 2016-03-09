@@ -226,7 +226,8 @@ class UserStory(models.Model):
         return res
 
     name = fields.Char(string="Title", size=255, required=True, readonly=False,
-                       translate=True, track_visibility='onchange')
+                       translate=True, track_visibility='onchange',
+                       default=lambda *a: None)
     owner_id = fields.Many2one('res.users', string="Owner",
                                help="User Story's Owner, generally the "
                                     "person which asked to develop "
@@ -245,7 +246,59 @@ class UserStory(models.Model):
                                      'accep_crit_id',
                                      string="Acceptability Criteria",
                                      required=False)
-
+    info = fields.Text(string='Other Info', translate=True)
+    priority_level = fields.Many2one('user.story.priority',
+                                     string='Priority Level',
+                                     help="User story level priority, "
+                                          "used to define priority for "
+                                          "each user story",
+                                     default=lambda self: self.env[
+                                            'user.story.priority'].search(
+                                                [('name', 'like', 'Secondary')]
+                                     )[0])
+    asumption = fields.Text(string='Assumptions', translate=True)
+    date = fields.Date(string='Date',
+                       default=lambda *a: time.strftime('%Y-%m-%d'))
+    user_id = fields.Many2one('res.users', string='Responsible Supervisor',
+                              help="Person responsible for interacting with "
+                                   "the client to give details of the "
+                                   "progress or completion of the User Story, "
+                                   "in some cases also the supervisor for the "
+                                   "correct execution of the user story.",
+                              track_visibility='always',
+                              default=lambda self: self._uid)
+    user_execute_id = fields.Many2one('res.users',
+                                      string='Execution Responsible',
+                                      help="Person responsible for user story "
+                                           "takes place, either by delegating "
+                                           "line to other human resource or "
+                                           "running it by itself. For delegate"
+                                           " line should monitor the proper "
+                                           "implementation of associated "
+                                           "activities.",
+                                      track_visibility='always',
+                                      default=lambda self: self._uid)
+    sk_id = fields.Many2one('sprint.kanban', string='Sprint Kanban')
+    state = fields.Selection(_US_STATE, string="State", readonly=True,
+                             track_visibility='onchange', default='draft')
+    task_ids = fields.One2many('project.task', 'userstory_id', string='Tasks',
+                               help="Draft procurement of the product and "
+                                    "location of that orderpoint")
+    categ_ids = fields.Many2many('project.tags', string='Tags')
+    implementation = fields.Text(string='Implementation Conclusions',
+                                 translate=True)
+    help = fields.Boolean(string='Show Help', default=True,
+                          help='Allows you to show the help in the form')
+    approved = fields.Boolean(string='Approved',
+                              help='Has been this user story '
+                                   'approved by customer',
+                              track_visibility='onchange')
+    invoiceable_hours = fields.Float('Invoiceable Hours',
+                                     help="Computed using the sum of the "
+                                          "task line done.")
+    effective_hours = fields.Float('Hours Spent',
+                                   help="Computed using the sum of the "
+                                        "task line done.")
     _columns = {
         # 'name': fields.char('Title', size=255, required=True, readonly=False,
         #                    translate=True, track_visibility='onchange'),
@@ -268,81 +321,81 @@ class UserStory(models.Model):
         #                                   'accep_crit_id',
         #                                   'Acceptability Criteria',
         #                                   required=False),
-        'info': fields.text('Other Info', translate=True),
-        'priority_level': fields.many2one(
-            'user.story.priority',
-            'Priority Level',
-            help=('User story level priority, used to define priority for'
-                  ' each user story')),
-        'asumption': fields.text('Assumptions', translate=True),
-        'date': fields.date('Date'),
-        'user_id': fields.many2one(
-            'res.users', 'Responsible Supervisor',
-            help=("Person responsible for interacting with the client to give"
-                  " details of the progress or completion of the User Story,"
-                  " in some cases also the supervisor for the correct"
-                  " execution of the user story."), track_visibility='always'),
-        'user_execute_id': fields.many2one(
-            'res.users', 'Execution Responsible',
-            help="Person responsible for user story takes place, either by"
-                 " delegating line to other human resource or running it by"
-                 " itself. For delegate line should monitor the proper"
-                 " implementation of associated activities.",
-            track_visibility='always'),
-        'sk_id': fields.many2one('sprint.kanban', 'Sprint Kanban'),
-        'state': fields.selection(_US_STATE, 'State', readonly=True,
-                                  track_visibility='onchange'),
-        'task_ids': fields.one2many(
-            'project.task', 'userstory_id',
-            string="Tasks",
-            help=("Draft procurement of the product and location of that"
-                  " orderpoint")),
-        'categ_ids': fields.many2many('project.tags',
-                                      'project_tags_user_story_rel',
-                                      'userstory_id', 'categ_id',
-                                      string="Tags"),
-        'implementation': fields.text('Implementation Conclusions',
-                                      translate=True),
-        'help': fields.boolean('Show Help',
-                               help='Allows you to show the help in the form'),
-        'approved': fields.boolean('Approved',
-                                   help='Has been this user story '
-                                   'approved by customer',
-                                   track_visibility='onchange'),
-        'invoiceable_hours': fields.function(
-            _expended_hours_get,
-            type='float',
-            string='Invoiceable Hours',
-            help="Computed using the sum of the task line done.",
-            store = {
-                _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
-                'project.task': (_get_user_story_from_pt,
-                                 ['timesheet_ids', 'userstory_id'], 10),
+        # 'info': fields.text('Other Info', translate=True),
+        # 'priority_level': fields.many2one(
+        #    'user.story.priority',
+        #    'Priority Level',
+        #    help=('User story level priority, used to define priority for'
+        #          ' each user story')),
+        # 'asumption': fields.text('Assumptions', translate=True),
+        # 'date': fields.date('Date'),
+        # 'user_id': fields.many2one(
+        #    'res.users', 'Responsible Supervisor',
+        #    help=("Person responsible for interacting with the client to give"
+        #          " details of the progress or completion of the User Story,"
+        #          " in some cases also the supervisor for the correct"
+        #         " execution of the user story."), track_visibility='always'),
+        # 'user_execute_id': fields.many2one(
+        #    'res.users', 'Execution Responsible',
+        #    help="Person responsible for user story takes place, either by"
+        #         " delegating line to other human resource or running it by"
+        #         " itself. For delegate line should monitor the proper"
+        #         " implementation of associated activities.",
+        #    track_visibility='always'),
+        # 'sk_id': fields.many2one('sprint.kanban', 'Sprint Kanban'),
+        # 'state': fields.selection(_US_STATE, 'State', readonly=True,
+        #                          track_visibility='onchange'),
+        # 'task_ids': fields.one2many(
+        #    'project.task', 'userstory_id',
+        #    string="Tasks",
+        #    help=("Draft procurement of the product and location of that"
+        #          " orderpoint")),
+        # 'categ_ids': fields.many2many('project.tags',
+        #                              'project_tags_user_story_rel',
+        #                              'userstory_id', 'categ_id',
+        #                              string="Tags"),
+        # 'implementation': fields.text('Implementation Conclusions',
+        #                              translate=True),
+        # 'help': fields.boolean('Show Help',
+        #                      help='Allows you to show the help in the form'),
+        # 'approved': fields.boolean('Approved',
+        #                           help='Has been this user story '
+        #                           'approved by customer',
+        #                           track_visibility='onchange'),
+        # 'invoiceable_hours': fields.function(
+        #    _expended_hours_get,
+        #    type='float',
+        #    string='Invoiceable Hours',
+        #    help="Computed using the sum of the task line done.",
+        #    store = {
+        #        _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
+        #        'project.task': (_get_user_story_from_pt,
+        #                         ['timesheet_ids', 'userstory_id'], 10),
                 # 'hr.analytic.timesheet': (_get_user_story_from_ts,
                 #                           ['unit_amount', 'to_invoice'], 10),
                 # 'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
-            }),
-        'effective_hours': fields.function(
-            _hours_get, string='Hours Spent',
-            help="Computed using the sum of the task line done.",
-            store = {
-                _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
-                'project.task': (_get_user_story_from_pt,
-                                 ['timesheet_ids', 'userstory_id'], 10),
+        #    }),
+        # 'effective_hours': fields.function(
+        #    _hours_get, string='Hours Spent',
+        #    help="Computed using the sum of the task line done.",
+        #    store = {
+        #        _name: (lambda s, c, u, ids, cx={}: ids, ['task_ids'], 10),
+        #        'project.task': (_get_user_story_from_pt,
+        #                         ['timesheet_ids', 'userstory_id'], 10),
                 # 'project.task.work': (_get_user_story_from_ptw, ['hours'], 10),
-            }),
+        #    }),
     }
 
     _defaults = {
-        'name': lambda *a: None,
-        'date': lambda *a: time.strftime('%Y-%m-%d'),
-        'user_id': lambda self, cr, uid, ctx: uid,
-        'user_execute_id': lambda self, cr, uid, ctx: uid,
-        'state': 'draft',
-        'priority_level': lambda self, cr, uid, ctx: self.pool.get(
-            'user.story.priority').search(
-                cr, uid, [('name', 'like', 'Secondary')], context=ctx)[0],
-        'help': True,
+        # 'name': lambda *a: None,
+        # 'date': lambda *a: time.strftime('%Y-%m-%d'),
+        # 'user_id': lambda self, cr, uid, ctx: uid,
+        # 'user_execute_id': lambda self, cr, uid, ctx: uid,
+        # 'state': 'draft',
+        #'priority_level': lambda self, cr, uid, ctx: self.pool.get(
+        #    'user.story.priority').search(
+        #        cr, uid, [('name', 'like', 'Secondary')], context=ctx)[0],
+        # 'help': True,
     }
 
     @api.multi
@@ -464,31 +517,46 @@ class UserStory(models.Model):
 class UserStoryPriority(models.Model):
     _name = 'user.story.priority'
     _description = "User Story Priority Level"
-    _columns = {
-        'name': fields.char('Name', size=255, required=True),
-    }
+
+    name = fields.Char(string='Name', size=255, required=True)
+    # _columns = {
+    #    'name': fields.char('Name', size=255, required=True),
+    # }
 
 
 class UserStoryDifficulty(models.Model):
     _name = 'user.story.difficulty'
     _description = "User Story Difficulty Level"
     _order = "points asc"
-    _columns = {
-        'name': fields.char('Name', size=32, required=True,
-                            help="Set a Name for this Estimation."),
-        'estimated': fields.float(
-            'Estimated Hours', size=32, required=True,
-            help="How many hour do you think it can take."),
-        'points': fields.integer(
-            'Points', required=True,
-            help="Just to give another value to criterias and User Stories."
-                 " With it you can set an order and a value in terms of"
-                 " effort."),
-        'help': fields.text(
-            'Help', required=True,
-            help="Explain what kind of User Stories can be on this level,"
-                 " tell your experience give examples and so on."),
-    }
+
+    name = fields.Char(string='Name', size=255, required=True,
+                       help="Set a Name for this Estimation.")
+    estimated = fields.Float('Estimated', size=32, required=True,
+                             help="How many hour do you think it can take.")
+    points = fields.Integer('Points', required=True,
+                            help="Just to give another value to criterias and "
+                                 "User Stories. With it you can set an order "
+                                 "and a value in terms of effort.")
+    help = fields.Text(string='Help', required=True,
+                       help="Explain what kind of User Stories can be "
+                            "on this level, tell your experience give "
+                            "examples and so on.")
+    # _columns = {
+    #    'name': fields.char('Name', size=32, required=True,
+    #                        help="Set a Name for this Estimation."),
+    #     'estimated': fields.float(
+    #        'Estimated Hours', size=32, required=True,
+    #        help="How many hour do you think it can take."),
+    #     'points': fields.integer(
+    #        'Points', required=True,
+    #        help="Just to give another value to criterias and User Stories."
+    #             " With it you can set an order and a value in terms of"
+    #             " effort."),
+    #     'help': fields.text(
+    #        'Help', required=True,
+    #        help="Explain what kind of User Stories can be on this level,"
+    #             " tell your experience give examples and so on."),
+    # }
 
 
 class AcceptabilityCriteria(models.Model):
@@ -637,90 +705,122 @@ class AcceptabilityCriteria(models.Model):
             res[ac_brw.id] = copy_field
         return res
 
-    _columns = {
-        'name': fields.char('Title', size=255, required=True, readonly=False,
-                            translate=True),
-        'scenario': fields.text('Scenario', required=True, translate=True),
-        'accep_crit_id': fields.many2one('user.story',
-                                         'User Story',
-                                         ondelete='cascade',
-                                         ),
-        'accepted': fields.boolean('Accepted',
-                                   help='Check if this criterion apply'),
-        'development': fields.boolean('Development'),
-        'difficulty_level': fields.many2one(
-            'user.story.difficulty',
-            'Difficulty',
-            help='User story level estimated level, Estimated level is the'
-                 ' one which will be used to propose a number of hours based'
-                 ' on the experience of supervisors to estimate how many hours'
-                 ' it can take. you can set a different number of hours if'
-                 ' you think the estimation is wrong'),
-        'difficulty': fields.selection(
-            [('low', 'Low'),
-             ('medium', 'Medium'),
-             ('high', 'High'),
-             ('na', 'Not Apply')],
-            string='Difficulty'),
-        'project_id': fields.function(
-            _get_user_story_field,
-            type="many2one",
-            relation='project.project',
-            string='Project',
-            help='User Story Project',
-            store={
-                'acceptability.criteria': (lambda s, c, u, i, ctx: i,
-                                           ['accep_crit_id'], 16),
-                'user.story': (_get_ac_ids_by_us_ids, ['project_id'], 20),
-            }),
-        'sk_id': fields.function(
-            _get_user_story_field,
-            type="many2one",
-            relation="sprint.kanban",
-            string='Sprint',
-            help='Sprint Kanban',
-            store={
-                'acceptability.criteria': (lambda s, c, u, i, ctx: i,
-                                           ['accep_crit_id'], 16),
-                'user.story': (_get_ac_ids_by_us_ids, ['sk_id'], 20),
-            }),
-        'categ_ids': fields.function(
-            _get_user_story_field,
-            type="many2one",
-            relation="project.tags",
-            string='Tag',
-            help='Tag',
-            store={
-                'acceptability.criteria': (lambda s, c, u, i, ctx: i,
-                                           ['accep_crit_id'], 16),
-                'user.story': (_get_ac_ids_by_us_ids, ['categ_ids'], 20),
-            }),
-        'user_id': fields.function(
-            _get_user_story_field,
-            type="many2one",
-            relation="res.users",
-            string='Responsible Supervisor',
-            help='Responsible Supervisor',
-            store={
-                'acceptability.criteria': (lambda s, c, u, i, ctx: i,
-                                           ['accep_crit_id'], 16),
-                'user.story': (_get_ac_ids_by_us_ids, ['user_id'], 20),
-            }),
-        'user_execute_id': fields.function(
-            _get_user_story_field,
-            type="many2one",
-            relation="res.users",
-            string='Execution Responsible',
-            help='Execution Responsible',
-            store={
-                'acceptability.criteria': (lambda s, c, u, i, ctx: i,
-                                           ['accep_crit_id'], 16),
-                'user.story': (_get_ac_ids_by_us_ids, ['user_execute_id'], 20),
-            }),
-    }
+    name = fields.Char(string='Title', size=255, required=True,
+                       readonly=False, translate=True, default=lambda *a: None)
+    scenario = fields.Text(string='Scenario', required=True, translate=True)
+    accep_crit_id = fields.Many2one('user.story', string='User Story',
+                                    ondelete='cascade')
+    accepted = fields.Boolean(string='Accepted',
+                              help='Check if this criterion apply')
+    development = fields.Boolean(string='Development')
+    difficulty_level = fields.Many2one('user.story.difficulty',
+                                       string='Difficulty',
+                                       help='User story level estimated level,'
+                                       ' Estimated level is the one which will'
+                                       ' be used to propose a number of hours '
+                                       'based on the experience of supervisors'
+                                       ' to estimate how many hours it can '
+                                       'take. you can set a different number '
+                                       'of hours if you think the estimation '
+                                       'is wrong')
+    difficulty = fields.Selection([('low', 'Low'), ('medium', 'Medium'),
+                                  ('high', 'High'), ('na', 'Not Apply')],
+                                  string='Difficulty', default='na')
+    project_id = fields.Many2one('project.project', string='Project',
+                                 help='User Story Project')
+    sk_id = fields.Many2one('sprint.kanban', string='Sprint',
+                            help='Sprint Kanban')
+    categ_ids = fields.Many2one('project.tags', string='Tag',
+                                help='Tag')
+    user_id = fields.Many2one('res.users', string='Responsible Supervisor',
+                              help='Responsible Supervisor')
+    user_execute_id = fields.Many2one('res.users',
+                                      string='Execution Responsible',
+                                      help='Execution Responsible')
+    # _columns = {
+    #    'name': fields.char('Title', size=255, required=True, readonly=False,
+    #                        translate=True),
+    #    'scenario': fields.text('Scenario', required=True, translate=True),
+    #    'accep_crit_id': fields.many2one('user.story',
+    #                                     'User Story',
+    #                                     ondelete='cascade',
+    #                                     ),
+    #    'accepted': fields.boolean('Accepted',
+    #                               help='Check if this criterion apply'),
+    #    'development': fields.boolean('Development'),
+    #    'difficulty_level': fields.many2one(
+    #        'user.story.difficulty',
+    #        'Difficulty',
+    #        help='User story level estimated level, Estimated level is the'
+    #             ' one which will be used to propose a number of hours based '
+    #             'on the experience of supervisors to estimate how many hours'
+    #             ' it can take. you can set a different number of hours if'
+    #             ' you think the estimation is wrong'),
+    #    'difficulty': fields.selection(
+    #        [('low', 'Low'),
+    #         ('medium', 'Medium'),
+    #         ('high', 'High'),
+    #         ('na', 'Not Apply')],
+    #        string='Difficulty'),
+    #    'project_id': fields.function(
+    #        _get_user_story_field,
+    #        type="many2one",
+    #        relation='project.project',
+    #        string='Project',
+    #        help='User Story Project',
+    #        store={
+    #            'acceptability.criteria': (lambda s, c, u, i, ctx: i,
+    #                                       ['accep_crit_id'], 16),
+    #            'user.story': (_get_ac_ids_by_us_ids, ['project_id'], 20),
+    #        }),
+    #    'sk_id': fields.function(
+    #        _get_user_story_field,
+    #        type="many2one",
+    #        relation="sprint.kanban",
+    #        string='Sprint',
+    #        help='Sprint Kanban',
+    #        store={
+    #            'acceptability.criteria': (lambda s, c, u, i, ctx: i,
+    #                                       ['accep_crit_id'], 16),
+    #            'user.story': (_get_ac_ids_by_us_ids, ['sk_id'], 20),
+    #        }),
+    #    'categ_ids': fields.function(
+    #        _get_user_story_field,
+    #        type="many2one",
+    #        relation="project.tags",
+    #        string='Tag',
+    #        help='Tag',
+    #        store={
+    #            'acceptability.criteria': (lambda s, c, u, i, ctx: i,
+    #                                       ['accep_crit_id'], 16),
+    #            'user.story': (_get_ac_ids_by_us_ids, ['categ_ids'], 20),
+    #        }),
+    #    'user_id': fields.function(
+    #        _get_user_story_field,
+    #        type="many2one",
+    #        relation="res.users",
+    #        string='Responsible Supervisor',
+    #        help='Responsible Supervisor',
+    #        store={
+    #            'acceptability.criteria': (lambda s, c, u, i, ctx: i,
+    #                                       ['accep_crit_id'], 16),
+    #            'user.story': (_get_ac_ids_by_us_ids, ['user_id'], 20),
+    #        }),
+    #    'user_execute_id': fields.function(
+    #        _get_user_story_field,
+    #        type="many2one",
+    #        relation="res.users",
+    #        string='Execution Responsible',
+    #        help='Execution Responsible',
+    #        store={
+    #            'acceptability.criteria': (lambda s, c, u, i, ctx: i,
+    #                                       ['accep_crit_id'], 16),
+    #            'user.story': (_get_ac_ids_by_us_ids, ['user_execute_id'], 20),
+    #        }),
+    # }
     _defaults = {
-        'name': lambda *a: None,
-        'difficulty': 'na',
+        # 'name': lambda *a: None,
+        # 'difficulty': 'na',
     }
 
 
@@ -764,16 +864,21 @@ class ProjectTask(models.Model):
                 cr, uid, [task.id], {'date_end': date_end}, context=context)
         return res
 
-    _columns = {
-        'userstory_id': fields.many2one(
-            'user.story', 'User Story',
-            # domain="[('sk_id', '=', sprint_id)]",
-            help="Set here the User Story related with this task"),
-        'branch_to_clone': fields.char(
-            'Branch to clone', 512,
-            help='Source branch to be clone and make merge proposal'),
-
-    }
+    userstory_id = fields.Many2one('user.story', string='User Story',
+                                   help="Set here the User Story related "
+                                        "with this task")
+    branch_to_clone = fields.Char(string='Branch to clone', size=512,
+                                  help='Source branch to be clone and make'
+                                       ' merge proposal')
+    # _columns = {
+    #     'userstory_id': fields.many2one(
+    #        'user.story', 'User Story',
+    #        # domain="[('sk_id', '=', sprint_id)]",
+    #        help="Set here the User Story related with this task"),
+    #    'branch_to_clone': fields.char(
+    #        'Branch to clone', 512,
+    #        help='Source branch to be clone and make merge proposal'),
+    # }
 
 
 class InheritProject(models.Model):
@@ -781,7 +886,10 @@ class InheritProject(models.Model):
     '''Inheirt project model to a new Descripcion field'''
 
     _inherit = 'project.project'
-    _columns = {
-        'descriptions': fields.text(
-            'Description', help="Reference on what the project is about"),
-    }
+
+    descriptions = fields.Text(string='Description',
+                               help="Reference on what the project is about")
+    # _columns = {
+    #    'descriptions': fields.text(
+    #        'Description', help="Reference on what the project is about"),
+    # }
